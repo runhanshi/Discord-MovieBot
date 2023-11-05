@@ -1,0 +1,211 @@
+plugins {
+    // Build "shadow" JARs for deployment
+    id 'com.github.johnrengelman.shadow'
+
+    // Apply the java plugin to add support for Java
+    id 'java'
+
+    // Apply the application plugin to add support for building a CLI application.
+    id 'application'
+
+    // Lombok provides shorthand for repetitive Java tasks
+    id "io.freefair.lombok"
+
+    // Spotless to format code easily
+    id "com.diffplug.spotless"
+
+    // Code coverage
+    id "jacoco"
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+      name 'm2-dv8tion'
+      url 'https://m2.dv8tion.net/releases'
+    }
+}
+
+dependencies {
+    // log4j so JDA can log
+    implementation 'org.apache.logging.log4j:log4j-api:_'
+    implementation 'org.apache.logging.log4j:log4j-core:_'
+    implementation 'org.slf4j:slf4j-simple:_'
+
+    // Pagination-Utils included to paginate the movie release information
+    implementation 'com.github.ygimenez:Pagination-Utils:3.0.4'
+
+    // Powermock included to test subscribe feature
+    testImplementation "org.powermock:powermock-module-junit4:2.0.9"
+    testImplementation "org.powermock:powermock-module-junit4-rule:2.0.9"
+    testImplementation "org.powermock:powermock-api-mockito2:2.0.9"
+    testImplementation "org.powermock:powermock-classloading-xstream:2.0.9"
+
+    testImplementation 'org.mockito:mockito-inline:4.0.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:4.0.0'
+
+    // sparkjava for simple HTTP serving
+    implementation "com.sparkjava:spark-core:_"
+
+    // Use JUnit Jupiter API for testing.
+    testImplementation Testing.junit.api
+
+    // Use JUnit Jupiter Engine for testing.
+    testRuntimeOnly Testing.junit.engine
+
+    // Annotations such as Nullable
+    implementation 'com.google.code.findbugs:annotations:_'
+
+    // Force JRE Guava to work around issues with Truth
+    testImplementation "com.google.guava:guava:_"
+
+    // Fluent assertions for testing
+    testImplementation 'com.google.truth:truth:_'
+
+    // JDA for talking to Discord
+    implementation ('net.dv8tion:JDA:_') {
+        // Remove the next line if your bot needs voice support!
+        exclude module: "opus-java"
+    }
+
+    // API wrapper for TMDB
+    implementation group: 'com.github.holgerbrandl', name: 'themoviedbapi', version:'1.12'
+
+    // Use dagger for dependency injection
+    implementation 'com.google.dagger:dagger:2.40'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.40'
+
+    // MongoDB client
+    implementation 'org.mongodb:mongodb-driver:3.12.10'
+}
+
+application {
+    // Define the main class for the application.
+    mainClassName = 'edu.northeastern.cs5500.moviebot.App'
+}
+
+test {
+    // Use junit platform for unit tests
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// Target Java 1.8 - make sure system.properties matches this as well
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/main/java'
+            srcDirs 'build/generated/sources/annotationProcessor/java/main'
+        }
+    }
+    test {
+        java {
+            srcDirs 'src/test/java'
+            srcDirs 'build/generated/sources/annotationProcessor/java/test'
+        }
+    }
+}
+
+spotless {
+    format 'misc', {
+        target '**/*.gradle', '**/*.md', '**/.gitignore'
+        targetExclude 'build/**'
+
+        trimTrailingWhitespace()
+        indentWithSpaces()
+        endWithNewline()
+    }
+    java {
+        targetExclude 'build/**'
+        googleJavaFormat().aosp()
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.4"
+    reportsDir = file("$buildDir/customJacocoReportDir")
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.destination file("${buildDir}/jacocoHtml")
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.3
+            }
+        }
+
+        rule {
+            enabled = false
+            element = 'CLASS'
+            includes = ['org.gradle.*']
+
+            limit {
+                counter = 'LINE'
+                value = 'TOTALCOUNT'
+                maximum = 0.3
+            }
+        }
+    }
+}
+
+test {
+    useJUnit()
+    maxHeapSize = '1G'
+}
+
+tasks.withType(Pmd){
+    reports{
+        xml.enabled=true
+        html.enabled=true
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+task docs(type: Javadoc) {
+    source = sourceSets.main.allJava
+}
+
+check.dependsOn jacocoTestCoverageVerification
+jacocoTestReport.mustRunAfter test
+
+task doAll{
+    dependsOn test
+    dependsOn check
+    dependsOn javadoc
+    dependsOn build
+
+    doLast {
+        println 'all done!'
+    }
+}
+
+jacocoTestReport {
+    doLast {
+        println "file://$buildDir/jacocoHtml/index.html"
+    }
+}
+
+javadoc {
+    doLast {
+        println "file://$buildDir/docs/javadoc/index.html"
+    }
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
